@@ -3,8 +3,11 @@ use serde::Deserialize;
 #[derive(Deserialize)]
 #[serde(tag = "cmd", rename_all = "camelCase")]
 pub enum Cmd {
-  // your custom commands
-  // multiple arguments are allowed
-  // note that rename_all = "camelCase": you need to use "myCustomCommand" on JS
-  MyCustomCommand { argument: String },
+  OpenFile,
+  AddNewEntry,
+  UpdateEntry { index: usize, new_value: String },
+  DeleteEntry { index: usize },
+  MoveEntryUp { index: usize },
+  MoveEntryDown { index: usize },
+  GetFileContent { callback: String, error: String },
 }

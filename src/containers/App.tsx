@@ -2,89 +2,72 @@ import React from "react";
 import "antd/dist/antd.css";
 import Title from "./Title";
 import ActionsBar from "./ActionsBar";
-import { open } from "tauri/api/dialog";
-import { readTextFile, writeFile } from "tauri/api/fs";
 import TodoList from "./TodoList";
+import { invoke, promisified } from "tauri/api/tauri";
 
 interface TodoListFile {
-  fileLocation: string;
+  file_location: string;
   list: string[];
 }
 
 export default function App() {
   const [file, setFile] = React.useState<TodoListFile>();
 
-  const openFile = React.useCallback(async (): Promise<void> => {
-    const newLocation = (await open({ filter: "todo" })) as string;
-    const fileContent = (await readTextFile(newLocation)) as string;
-    setFile({ fileLocation: newLocation, list: fileContent.split("\n") });
+  const refreshContent = React.useCallback(async (): Promise<void> => {
+    setFile(await promisified({ cmd: "getFileContent" }));
   }, []);
 
   React.useEffect((): void => {
-    // write back to file when list is updated
-    if (!file) return;
-    writeFile({ path: file.fileLocation, contents: file.list.join("\n") });
-  }, [file]);
+    // in case only FE is reloaded
+    refreshContent();
+  }, [refreshContent]);
+
+  const openFile = React.useCallback(() => {
+    invoke({ cmd: "openFile" });
+    refreshContent();
+  }, [refreshContent]);
 
   const addNewEntry = React.useCallback((): void => {
-    if (!file) return;
-    setFile({ ...file, list: [...file.list, ""] });
-  }, [file]);
+    invoke({ cmd: "addNewEntry" });
+    refreshContent();
+  }, [refreshContent]);
 
   const updateEntry = React.useCallback(
     (updateIndex: number, newValue: string): void => {
-      if (!file) return;
-      setFile({
-        ...file,
-        list: file.list.map((entry, index) =>
-          index === updateIndex ? newValue : entry
-        ),
-      });
+      invoke({ cmd: "updateEntry", index: updateIndex, new_value: newValue });
+      refreshContent();
     },
-    [file]
+    [refreshContent]
   );
 
   const deleteEntry = React.useCallback(
     (deleteIndex: number): void => {
-      if (!file) return;
-      setFile({
-        ...file,
-        list: file.list.filter((_, index) => index !== deleteIndex),
-      });
+      invoke({ cmd: "deleteEntry", index: deleteIndex });
+      refreshContent();
     },
-    [file]
+    [refreshContent]
   );
 
   const moveEntryUp = React.useCallback(
     (moveIndex: number): void => {
-      if (!file) return;
-      if (moveIndex === 0) return;
-
-      const newList = [...file.list];
-      newList[moveIndex] = file.list[moveIndex - 1];
-      newList[moveIndex - 1] = file.list[moveIndex];
-      setFile({ ...file, list: newList });
+      invoke({ cmd: "moveEntryUp", index: moveIndex });
+      refreshContent();
     },
-    [file]
+    [refreshContent]
   );
 
   const moveEntryDown = React.useCallback(
     (moveIndex: number): void => {
-      if (!file) return;
-      if (moveIndex === file.list.length - 1) return;
-
-      const newList = [...file.list];
-      newList[moveIndex] = file.list[moveIndex + 1];
-      newList[moveIndex + 1] = file.list[moveIndex];
-      setFile({ ...file, list: newList });
+      invoke({ cmd: "moveEntryDown", index: moveIndex });
+      refreshContent();
     },
-    [file]
+    [refreshContent]
   );
 
   return (
     <>
       <Title />
-      <ActionsBar fileLocation={file?.fileLocation} openFile={openFile} />
+      <ActionsBar fileLocation={file?.file_location} openFile={openFile} />
       <TodoList
         list={file?.list || []}
         hasFileLoaded={!!file}
